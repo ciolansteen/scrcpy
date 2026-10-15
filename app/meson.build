@@ -23,6 +23,7 @@ src = [
     'src/hwdec.c',
     'src/icon.c',
     'src/input_manager.c',
+    'src/pen.c',
     'src/keyboard_sdk.c',
     'src/mouse_capture.c',
     'src/mouse_sdk.c',
@@ -275,6 +276,10 @@ if get_option('buildtype') == 'debug'
             'src/adb/adb_parser.c',
             'src/util/str.c',
             'src/util/strbuf.c',
+        ]],
+        ['test_pen', [
+            'tests/test_pen.c',
+            'src/pen.c',
         ]],
         ['test_binary', [
             'tests/test_binary.c',

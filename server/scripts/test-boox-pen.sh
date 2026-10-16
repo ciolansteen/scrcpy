@@ -10,8 +10,11 @@ if [[ ! -f "$core" ]]; then
 fi
 javac -Xlint:all -Werror -d "$build" "$core" \
     "$root/server/src/main/java/com/genymobile/scrcpy/control/BooxDevice.java" \
+    "$root/server/src/main/java/com/genymobile/scrcpy/control/BooxMapping.java" \
     "$root/server/src/main/java/com/genymobile/scrcpy/control/BooxPenSession.java" \
     "$root"/server/src/testHost/java/com/genymobile/scrcpy/control/*Test.java
 java -cp "$build" com.genymobile.scrcpy.control.BooxPenTest
 java -cp "$build" com.genymobile.scrcpy.control.BooxDeviceTest
 java -cp "$build" com.genymobile.scrcpy.control.BooxPenSessionTest
+java -cp "$build" com.genymobile.scrcpy.control.BooxMappingTest \
+    "$root/server/src/testHost/java/com/genymobile/scrcpy/control/fixtures/boox-input.txt"

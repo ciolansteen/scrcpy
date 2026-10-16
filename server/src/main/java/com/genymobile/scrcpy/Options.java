@@ -547,8 +547,12 @@ public class Options {
                     options.displayImePolicy = parseDisplayImePolicy(value);
                     break;
                 case "boox_pen":
+                    if (value.equals("auto")) {
+                        options.booxPenRotation = -2;
+                        break;
+                    }
                     if (!value.equals("0") && !value.equals("90") && !value.equals("180") && !value.equals("270")) {
-                        throw new IllegalArgumentException("boox_pen must be 0, 90, 180 or 270");
+                        throw new IllegalArgumentException("boox_pen must be auto, 0, 90, 180 or 270");
                     }
                     options.booxPenRotation = Integer.parseInt(value) / 90;
                     break;

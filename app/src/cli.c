@@ -154,7 +154,7 @@ static const struct sc_option options[] = {
         .longopt = "boox-pen",
         .argdesc = "rotation",
         .text = "Experimental BOOX native pen input (SDL pen only). "
-                "Explicit raw-axis calibration: 0, 90, 180 or 270. "
+                "Use auto for Android input mapping, or 0, 90, 180, 270. "
                 "Requires writable onyx_emp Wacom digitizer; never use "
                 "the physical pen concurrently. Mouse remains UI input.",
     },
@@ -2994,12 +2994,13 @@ parse_args_with_getopt(struct scrcpy_cli_args *args, int argc, char *argv[],
                 opts->window_aspect_ratio_lock = false;
                 break;
             case OPT_BOOX_PEN:
-                if (strcmp(optarg, "0") && strcmp(optarg, "90")
-                        && strcmp(optarg, "180") && strcmp(optarg, "270")) {
-                    LOGE("BOOX pen rotation must be 0, 90, 180 or 270");
+                if (strcmp(optarg, "auto") && strcmp(optarg, "0")
+                        && strcmp(optarg, "90") && strcmp(optarg, "180")
+                        && strcmp(optarg, "270")) {
+                    LOGE("BOOX pen rotation must be auto, 0, 90, 180 or 270");
                     return false;
                 }
-                opts->boox_pen_rotation = atoi(optarg);
+                opts->boox_pen_rotation = !strcmp(optarg, "auto") ? -2 : atoi(optarg);
                 break;
             case OPT_KEEP_ACTIVE:
                 opts->keep_active = true;

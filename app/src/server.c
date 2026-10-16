@@ -437,7 +437,9 @@ execute_server(struct sc_server *server,
     if (!params->vd_system_decorations) {
         ADD_PARAM("vd_system_decorations=false");
     }
-    if (params->boox_pen_rotation != -1) {
+    if (params->boox_pen_rotation == -2) {
+        ADD_PARAM("boox_pen=auto");
+    } else if (params->boox_pen_rotation != -1) {
         ADD_PARAM("boox_pen=%d", params->boox_pen_rotation);
     }
     if (params->keep_active) {

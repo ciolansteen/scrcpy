@@ -155,7 +155,12 @@ static void test_boox_pen(void) {
     char *valid[] = {"scrcpy", "--boox-pen=90"};
     assert(scrcpy_parse_args(&args, ARRAY_LEN(valid), valid));
     assert(args.opts.boox_pen_rotation == 90);
+    args = (struct scrcpy_cli_args) {.opts = scrcpy_options_default};
+    char *automatic[] = {"scrcpy", "--boox-pen=auto"};
+    assert(scrcpy_parse_args(&args, ARRAY_LEN(automatic), automatic));
+    assert(args.opts.boox_pen_rotation == -2);
     char *invalid[][3] = {
+        {"scrcpy", "--boox-pen=auto", "--no-control"},
         {"scrcpy", "--boox-pen=45", NULL},
         {"scrcpy", "--boox-pen=90", "--no-control"},
         {"scrcpy", "--boox-pen=90", "--mouse=uhid"},

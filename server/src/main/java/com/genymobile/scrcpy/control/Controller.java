@@ -88,6 +88,7 @@ public class Controller implements AsyncProcessor, VirtualDisplayListener {
     private volatile BooxPenProcess booxPen;
     private final int booxPenRotation;
     private int booxDisplayRotation;
+    private Size booxDisplaySize;
 
     private final boolean camera;
     private final int displayId;
@@ -284,8 +285,11 @@ public class Controller implements AsyncProcessor, VirtualDisplayListener {
         thread = new Thread(() -> {
             try {
                 if (booxPenRotation != -1) {
-                    booxDisplayRotation = ServiceManager.getDisplayManager().getDisplayInfo(0).getRotation();
-                    booxPen = new BooxPenProcess(booxPenRotation);
+                    DisplayInfo info = ServiceManager.getDisplayManager().getDisplayInfo(0);
+                    booxDisplayRotation = info.getRotation();
+                    booxDisplaySize = info.getSize();
+                    booxPen = new BooxPenProcess(booxPenRotation, booxDisplaySize.getWidth(), booxDisplaySize.getHeight(),
+                            booxDisplayRotation);
                 }
                 control();
             } catch (IOException e) {
@@ -554,8 +558,8 @@ public class Controller implements AsyncProcessor, VirtualDisplayListener {
         // Dedicated pen pointer reuses the touch packet; mouse clicks remain UI input.
         if (booxPen != null && pointerId == POINTER_ID_PEN) {
             DisplayInfo info = ServiceManager.getDisplayManager().getDisplayInfo(0);
-            if (targetDisplayId != 0 || info.getRotation() != booxDisplayRotation) {
-                throw new IOException("Display changed during BOOX pen session; recalibrate and reconnect");
+            if (targetDisplayId != 0 || info.getRotation() != booxDisplayRotation || !info.getSize().equals(booxDisplaySize)) {
+                throw new IOException("Display changed during BOOX pen session; reconnect");
             }
             Size size = info.getSize();
             booxPen.inject(action, pointerId, (float) point.getX() / (size.getWidth() - 1),

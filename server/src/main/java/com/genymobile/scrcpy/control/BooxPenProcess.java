@@ -124,6 +124,7 @@ public final class BooxPenProcess implements Closeable {
     }
 
     public static void main(String... args) {
+        Ln.useStdErr(); // stdout is exclusively the binary READY protocol, including before startup.
         ScheduledExecutorService watchdog = Executors.newSingleThreadScheduledExecutor();
         try {
             Os.setsid(); // Survive termination of the parent's adb shell session.

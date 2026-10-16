@@ -288,8 +288,7 @@ public class Controller implements AsyncProcessor, VirtualDisplayListener {
                     DisplayInfo info = ServiceManager.getDisplayManager().getDisplayInfo(0);
                     booxDisplayRotation = info.getRotation();
                     booxDisplaySize = info.getSize();
-                    booxPen = new BooxPenProcess(booxPenRotation, booxDisplaySize.getWidth(), booxDisplaySize.getHeight(),
-                            booxDisplayRotation);
+                    booxPen = new BooxPenProcess(booxPenRotation, booxDisplaySize.getWidth(), booxDisplaySize.getHeight());
                 }
                 control();
             } catch (IOException e) {

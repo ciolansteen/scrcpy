@@ -26,6 +26,18 @@ public final class BooxMappingTest {
         BooxMapping mapping = BooxMapping.parse(text, "/dev/input/event2", 0, 20966, 0, 15725);
         check(mapping.rotation == 3, "live orientation1 gives inverse270");
         check(mapping.width == 1404 && mapping.height == 1872, "logical screen dimensions");
+        // Real NoteAir: InputReader orientation=1 while logical DisplayInfo.rotation=0.
+        // These are distinct coordinate systems; only logical dimensions must match.
+        mapping.requireDisplaySize(1404, 1872);
+        ++checks;
+        for (int[] size : new int[][] {{1872, 1404}, {1403, 1872}, {1404, 1871}, {0, 0}}) {
+            try {
+                mapping.requireDisplaySize(size[0], size[1]);
+                throw new AssertionError("accepted wrong logical display size");
+            } catch (IllegalArgumentException expected) {
+                ++checks;
+            }
+        }
         for (int orientation = 0; orientation < 4; ++orientation) {
             String candidate = text.replace("orientation=1", "orientation=" + orientation)
                     .replace("SurfaceOrientation: 1", "SurfaceOrientation: " + orientation);

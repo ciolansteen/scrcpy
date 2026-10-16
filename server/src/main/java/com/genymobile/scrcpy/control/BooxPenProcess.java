@@ -28,9 +28,9 @@ public final class BooxPenProcess implements Closeable {
     private final DataOutputStream out;
     private boolean closed;
 
-    public BooxPenProcess(int rotation, int width, int height, int displayRotation) throws IOException {
+    public BooxPenProcess(int rotation, int width, int height) throws IOException {
         ProcessBuilder builder = new ProcessBuilder("app_process", "/", BooxPenProcess.class.getName(), String.valueOf(rotation),
-                String.valueOf(width), String.valueOf(height), String.valueOf(displayRotation));
+                String.valueOf(width), String.valueOf(height));
         builder.environment().put("CLASSPATH", Server.SERVER_PATH);
         builder.redirectError(ProcessBuilder.Redirect.INHERIT);
         process = builder.start();
@@ -136,10 +136,7 @@ public final class BooxPenProcess implements Closeable {
                 int rotation = Integer.parseInt(args[0]);
                 if (rotation == -2) {
                     BooxMapping mapping = BooxMapping.parse(readMetadata("dumpsys", "input"), d.path, d.minX, d.maxX, d.minY, d.maxY);
-                    if (mapping.width != Integer.parseInt(args[1]) || mapping.height != Integer.parseInt(args[2])
-                            || mapping.rotation != (4 - Integer.parseInt(args[3])) % 4) {
-                        throw new IOException("BOOX input viewport differs from captured display; reconnect");
-                    }
+                    mapping.requireDisplaySize(Integer.parseInt(args[1]), Integer.parseInt(args[2]));
                     rotation = mapping.rotation;
                     // Recheck physical idle state after the potentially slow metadata query.
                     BooxDevice fresh = BooxDevice.parse(readMetadata("getevent", "-lp"));

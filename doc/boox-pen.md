@@ -30,7 +30,7 @@ Only the final Android-display-to-evdev conversion differs. The writer reads bou
 
 Automatic mode currently accepts only an orientation-aware direct touchscreen mapper with identity affine calibration, matching raw-axis ranges, and a full, unoffset internal display-0 viewport. Unknown formats, offsets, viewport scaling, nonidentity affine calibration, ambiguous devices and display mismatches fail before the digitizer is opened; there is no guessed fallback. This deliberately supports a bounded metadata format, not every BOOX firmware.
 
-The captured display dimensions and rotation must remain unchanged during input. A detected change closes the backend; reconnect to rediscover the mapping. Metadata is sampled at startup, not continuously monitored for firmware-specific calibration changes.
+InputReader surface orientation and logical `DisplayInfo.rotation` belong to different coordinate systems and need not be equal. On the observed NoteAir, these are 1 and 0 respectively. Startup compares logical dimensions, not these orientation values. The captured display dimensions and rotation must remain unchanged during input. A detected change closes the backend; reconnect to rediscover the mapping. Metadata is sampled at startup, not continuously monitored for firmware-specific calibration changes.
 
 ## Explicit mapping override
 

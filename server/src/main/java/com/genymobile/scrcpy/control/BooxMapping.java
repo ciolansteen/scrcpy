@@ -15,6 +15,14 @@ public final class BooxMapping {
         this.height = height;
     }
 
+    /** Logical display dimensions must agree; InputReader orientation is not DisplayInfo.rotation. */
+    public void requireDisplaySize(int displayWidth, int displayHeight) {
+        if (width != displayWidth || height != displayHeight) {
+            throw new IllegalArgumentException("BOOX input viewport " + width + "x" + height
+                    + " differs from captured display " + displayWidth + "x" + displayHeight + "; reconnect");
+        }
+    }
+
     private static Matcher unique(String text, String expression) {
         Pattern pattern = Pattern.compile(expression, Pattern.MULTILINE);
         Matcher match = pattern.matcher(text);

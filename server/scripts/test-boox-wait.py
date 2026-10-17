@@ -17,7 +17,7 @@ assert 'booxPenRotation != -1 && pointerId == POINTER_ID_PEN' in inject, 'Never 
 assert 'booxPen.join();' in controller, 'Join startup during final cleanup'
 assert 'controlSocket.shutdownInput();' in channel, 'Wake actual socket input, not just a thread flag'
 constructor = process.split('public BooxPenProcess(', 1)[1].split('public synchronized void inject', 1)[0]
-assert constructor.index('BooxPenInitialization.awaitIdle(') < constructor.index('builder.start()'), 'Do not spawn writer before idle'
-assert 'ready.join(10000)' in constructor, 'Keep bounded child READY handshake'
+assert constructor.index('BooxPenInitialization.awaitIdle(') < constructor.index('new Connection('), 'Do not spawn writer before idle'
+assert 'ready.join(10000)' in process, 'Keep bounded child READY handshake'
 assert 'finally {' in process.split('static String readMetadata', 1)[1].split('public static void main', 1)[0], 'Discovery must clean process on cancellation'
 print('BooxWaitWiring: asynchronous startup, pending pen drop, recv wake, join, pre-spawn idle and READY timeout guards passed')

@@ -41,6 +41,14 @@ reports zero pressure and positive distance. The child still performs its own
 strict discovery and retains its ten-second READY handshake deadline. This does
 not accept distance zero as idle or inject a synthetic initialization event.
 
+Physical pen activity may resume between the parent's idle snapshot and the
+child's fresh probes, including its final automatic-mapping recheck. A valid
+non-idle snapshot of the exact bound digitizer now produces a private binary
+BUSY reply before evdev is opened. The parent closes that attempt and returns
+to its paced wait, without restarting scrcpy or the ADB connection. The notice
+is emitted only once across retries. EOF, malformed replies, lock conflicts,
+metadata errors and changed digitizer identity/capabilities are not retried.
+
 Closing scrcpy or disconnecting cancels pending startup. An initially active pen
 (other than the exact boot-neutral state), malformed or ambiguous metadata,
 changed digitizer capabilities, discovery errors and writer failures remain

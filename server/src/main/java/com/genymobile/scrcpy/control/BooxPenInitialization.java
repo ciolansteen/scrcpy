@@ -15,12 +15,25 @@ final class BooxPenInitialization {
     private BooxPenInitialization() {
     }
 
+    static BooxDevice awaitIdle(Probe probe, Runnable notice, Pause pause, BooxDevice expected) throws IOException, InterruptedException {
+        BooxDevice initial = BooxDevice.snapshot(probe.read());
+        if (expected != null && !expected.sameDevice(initial)) {
+            throw new IllegalArgumentException("BOOX digitizer changed during writer handoff");
+        }
+        return awaitIdle(initial, probe, notice, pause, expected != null);
+    }
+
     static BooxDevice awaitIdle(Probe probe, Runnable notice, Pause pause) throws IOException, InterruptedException {
         BooxDevice initial = BooxDevice.snapshot(probe.read());
+        return awaitIdle(initial, probe, notice, pause, false);
+    }
+
+    private static BooxDevice awaitIdle(BooxDevice initial, Probe probe, Runnable notice, Pause pause, boolean known)
+            throws IOException, InterruptedException {
         if (initial.isIdle()) {
             return initial;
         }
-        if (initial.x != 0 || initial.y != 0 || initial.pressure != 0 || initial.distance != 0) {
+        if (!known && (initial.x != 0 || initial.y != 0 || initial.pressure != 0 || initial.distance != 0)) {
             throw new IllegalArgumentException("BOOX digitizer is active, not boot-neutral");
         }
         notice.run();

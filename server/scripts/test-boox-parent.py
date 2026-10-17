@@ -49,6 +49,23 @@ public final class ParentProbe {
    }
    return;
   }
+  if (args[0].equals("cancel-startup")) {
+   AtomicReference<Throwable> failure = new AtomicReference<>();
+   Thread thread = new Thread(() -> {
+    try (BooxPenProcess p = new BooxPenProcess(0, 210, 420)) { }
+    catch (Exception e) { failure.set(e); }
+   });
+   thread.setDaemon(true);
+   thread.start();
+   long deadline = System.nanoTime() + 2000000000L;
+   while (!Files.exists(Paths.get(args[1])) && System.nanoTime() < deadline) { Thread.sleep(5); }
+   Thread.sleep(200);
+   thread.interrupt();
+   thread.join(5000);
+   if (thread.isAlive() || !(failure.get() instanceof InterruptedException)) { throw new AssertionError("Startup cancellation failed", failure.get()); }
+   System.out.println("CANCELLED");
+   return;
+  }
   Method method = BooxPenProcess.class.getDeclaredMethod("readMetadata", String[].class);
   method.setAccessible(true);
   String[] command = Arrays.copyOfRange(args, 2, args.length);
@@ -79,7 +96,7 @@ public final class ParentProbe {
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(content)
         sources.append(str(path))
-    for name in ('BooxDevice', 'BooxMapping', 'BooxPen', 'BooxPenSession', 'BooxPenInitialization', 'BooxPenStartup', 'BooxPenProcess'):
+    for name in ('BooxDevice', 'BooxMapping', 'BooxPen', 'BooxPenSession', 'BooxPenInitialization', 'BooxPenStartup', 'BooxPenPreparation', 'BooxPenProcess'):
         sources.append(str(base / 'control' / (name + '.java')))
     subprocess.run(['javac', '-Xlint:all,-try', '-Werror', '-d', temp, *sources], check=True)
     command = ['java', '-cp', temp, 'com.genymobile.scrcpy.control.ParentProbe']
@@ -115,6 +132,73 @@ public final class ParentProbe {
             if p.poll() is None:
                 p.kill()
                 p.communicate()
+    # Deterministic handoff race: the parent saw idle, but the fresh child sees contact.
+    marker.unlink()
+    caps.write_text(snapshot(0, 56))
+    attempts = build / 'attempts'
+    child.write_text('#!/usr/bin/env python3\nfrom pathlib import Path\nimport sys\np=Path(' + repr(str(attempts)) + ')\nn=int(p.read_text())+1 if p.exists() else 1\np.write_text(str(n))\nif n == 1:\n Path(' + repr(str(caps)) + ').write_text(' + repr(snapshot(120, 0)) + ')\n sys.stdout.buffer.write(b"BUSY"); sys.stdout.buffer.flush()\nelse:\n sys.stdout.buffer.write(b"BPEN"); sys.stdout.buffer.flush(); sys.stdin.buffer.read()\n')
+    with stderr.open('w') as err:
+        p = subprocess.Popen([*command, 'startup'], env=env, stdout=subprocess.PIPE, stderr=err, text=True)
+        try:
+            deadline = time.monotonic() + 5
+            while not attempts.exists() and time.monotonic() < deadline:
+                time.sleep(0.02)
+            assert attempts.exists(), stderr.read_text()
+            time.sleep(1.2)
+            assert p.poll() is None, 'Handoff became busy and crashed instead of returning to wait: ' + stderr.read_text()
+            assert attempts.read_text() == '1', 'Do not respawn while physical contact persists'
+            caps.write_text(snapshot(0, 56))
+            stdout, _ = p.communicate(timeout=6)
+            assert p.returncode == 0 and stdout == 'WRITER_READY\n', (stdout, stderr.read_text())
+            assert attempts.read_text() == '2', 'Retry must complete within the same parent session'
+            assert stderr.read_text().count('Pen not initialized') == 1, stderr.read_text()
+        finally:
+            if p.poll() is None:
+                p.kill()
+                p.communicate()
+    # Repeated BUSY is paced, keeps one notice and preserves direct identity arguments.
+    attempts.unlink()
+    caps.write_text(snapshot(0, 56))
+    race_child = child.read_text()
+    identity = ['/dev/input/event7', 'onyx_emp_Wacom I2C Digitizer', '0', '210', '0', '420', '4095', '255']
+    child.write_text('#!/usr/bin/env python3\nfrom pathlib import Path\nimport sys\nassert sys.argv[6:] == ' + repr(identity) + '\np=Path(' + repr(str(attempts)) + ')\nn=int(p.read_text())+1 if p.exists() else 1\np.write_text(str(n))\nsys.stdout.buffer.write(b"BUSY" if n < 3 else b"BPEN"); sys.stdout.buffer.flush()\nif n >= 3: sys.stdin.buffer.read()\n')
+    result = subprocess.run([*command, 'startup'], env=env, capture_output=True, text=True, timeout=8)
+    assert result.returncode == 0 and result.stdout == 'WRITER_READY\n', result.stderr
+    assert attempts.read_text() == '3' and result.stderr.count('Pen not initialized') == 1, result.stderr
+    # EOF/unknown replies are fatal, not a disguised physical-activity retry.
+    for reply in (b'', b'NOPE'):
+        attempts.unlink()
+        child.write_text('#!/usr/bin/env python3\nfrom pathlib import Path\nimport sys\nPath(' + repr(str(attempts)) + ').write_text("1")\nsys.stdout.buffer.write(' + repr(reply) + '); sys.stdout.buffer.flush()\n')
+        result = subprocess.run([*command, 'startup'], env=env, capture_output=True, text=True, timeout=5)
+        assert result.returncode != 0 and attempts.read_text() == '1', result.stderr
+        assert 'EOFException' in result.stderr if not reply else 'Invalid BOOX writer startup reply' in result.stderr
+    # Same address is not sufficient: changed capability after BUSY is fatal.
+    attempts.unlink()
+    child.write_text(race_child)
+    with stderr.open('w') as err:
+        p = subprocess.Popen([*command, 'startup'], env=env, stdout=subprocess.PIPE, stderr=err, text=True)
+        try:
+            deadline = time.monotonic() + 5
+            while caps.read_text() != snapshot(120, 0) and time.monotonic() < deadline:
+                time.sleep(0.02)
+            assert caps.read_text() == snapshot(120, 0), stderr.read_text()
+            caps.write_text(snapshot(0, 56).replace('max 210', 'max 211'))
+            p.communicate(timeout=5)
+            assert p.returncode != 0 and 'digitizer changed' in stderr.read_text(), stderr.read_text()
+            assert attempts.read_text() == '1', 'Replacement must never spawn another child'
+        finally:
+            if p.poll() is None:
+                p.kill()
+                p.communicate()
+    # Cancellation during a pending handshake and after BUSY must reap the attempted child.
+    for busy in (False, True):
+        caps.write_text(snapshot(0, 56))
+        child_pid = build / ('child-pid-' + str(busy))
+        child.write_text('#!/usr/bin/env python3\nfrom pathlib import Path\nimport os,sys\nPath(' + repr(str(child_pid)) + ').write_text(str(os.getpid()))\n'
+                         + ('Path(' + repr(str(caps)) + ').write_text(' + repr(snapshot(120, 0)) + ')\nsys.stdout.buffer.write(b"BUSY"); sys.stdout.buffer.flush()\n' if busy else 'sys.stdin.buffer.read()\n'))
+        result = subprocess.run([*command, 'cancel-startup', str(child_pid)], env=env, capture_output=True, text=True, timeout=8)
+        assert result.returncode == 0 and result.stdout == 'CANCELLED\n', result.stderr
+        assert not Path('/proc/' + child_pid.read_text()).exists(), 'Cancelled attempt survived'
     # Real metadata child cancellation must destroy the process, not only interrupt the Java caller.
     pidfile = build / 'pid'
     sleeper = build / 'sleep.py'
@@ -134,4 +218,4 @@ public final class ParentProbe {
                              'import sys; sys.stdout.write("x" * 262145)'],
                             capture_output=True, text=True, timeout=6)
     assert result.returncode != 0 and 'discovery failed' in result.stderr, 'Oversized metadata was accepted'
-print('BooxParentProcess: real constructor waits through contact, warns once, spawns only after idle; probe cancellation, fatal exit and size limit passed (host substitutes only)')
+print('BooxParentProcess: boot wait, repeated BUSY handoff, same-session resume, one notice, identity binding, fatal EOF/unknown replies and cancellation passed (host substitutes only)')

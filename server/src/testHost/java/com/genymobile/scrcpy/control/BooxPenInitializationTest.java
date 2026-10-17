@@ -106,7 +106,22 @@ public final class BooxPenInitializationTest {
         check(!t.isAlive() && interrupted.get(), "Cancellation must end pending discovery");
     }
 
+    private static void seededAfterHandoff() throws Exception {
+        BooxDevice expected = BooxDevice.parse(caps(0, 56));
+        String[] samples = {caps(120, 0), caps(0, 0), caps(0, 56)};
+        int[] i = {0};
+        BooxDevice result = BooxPenInitialization.awaitIdle(() -> samples[i[0]++], () -> {}, millis -> {}, expected);
+        check(result.isIdle() && i[0] == 3, "Known handoff may wait through resumed physical activity");
+        try {
+            BooxPenInitialization.awaitIdle(() -> caps(0, 56).replace("event7", "event8"), () -> {}, millis -> {}, expected);
+            throw new AssertionError("Seeded wait accepted replacement");
+        } catch (IllegalArgumentException accepted) {
+            // Even an idle replacement must remain fatal.
+        }
+    }
+
     public static void main(String[] args) throws Exception {
+        seededAfterHandoff();
         transition();
         failures();
         cancellation();

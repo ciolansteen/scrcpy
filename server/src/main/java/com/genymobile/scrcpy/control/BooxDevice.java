@@ -1,5 +1,6 @@
 package com.genymobile.scrcpy.control;
 
+import java.util.Arrays;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -50,10 +51,31 @@ public final class BooxDevice {
         return new int[] {Integer.parseInt(m.group(1)), Integer.parseInt(m.group(2)), Integer.parseInt(m.group(3))};
     }
 
+    static final class NotIdleException extends IllegalArgumentException {
+        private static final long serialVersionUID = 1L;
+        final transient BooxDevice device;
+
+        NotIdleException(BooxDevice device) {
+            super("BOOX digitizer is not idle: pressure=" + device.pressure + ", distance=" + device.distance);
+            this.device = device;
+        }
+    }
+
+    String[] identity() {
+        return new String[] {path, name, String.valueOf(minX), String.valueOf(maxX), String.valueOf(minY),
+                String.valueOf(maxY), String.valueOf(maxPressure), String.valueOf(maxDistance)};
+    }
+
+    void requireIdentity(String[] expected) {
+        if (!Arrays.equals(identity(), expected)) {
+            throw new IllegalArgumentException("BOOX digitizer changed during writer handoff");
+        }
+    }
+
     public static BooxDevice parse(String text) {
         BooxDevice result = snapshot(text);
         if (!result.isIdle()) {
-            throw new IllegalArgumentException("BOOX digitizer must be idle with valid absolute ranges");
+            throw new NotIdleException(result);
         }
         return result;
     }

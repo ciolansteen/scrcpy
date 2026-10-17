@@ -277,6 +277,16 @@ if get_option('buildtype') == 'debug'
             'src/util/str.c',
             'src/util/strbuf.c',
         ]],
+        ['test_controller_pen', [
+            'tests/test_controller_pen.c',
+            'src/control_msg.c',
+            'src/pen.c',
+            'src/util/log.c',
+            'src/util/str.c',
+            'src/util/strbuf.c',
+            'src/util/thread.c',
+            'src/util/tick.c',
+        ]],
         ['test_pen', [
             'tests/test_pen.c',
             'src/pen.c',

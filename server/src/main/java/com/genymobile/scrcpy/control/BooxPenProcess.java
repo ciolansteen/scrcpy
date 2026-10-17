@@ -6,7 +6,6 @@ import com.genymobile.scrcpy.util.Ln;
 import android.os.SystemClock;
 import android.system.Os;
 
-import java.io.Closeable;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.FileDescriptor;
@@ -22,13 +21,19 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
 /** Private child of scrcpy, like CleanUp: EOF releases ink even if its parent dies. No listener or installed service. */
-public final class BooxPenProcess implements Closeable {
+public final class BooxPenProcess implements BooxPenStartup.Writer {
     private static final int READY = 0x4250454e;
     private final Process process;
     private final DataOutputStream out;
     private boolean closed;
 
-    public BooxPenProcess(int rotation, int width, int height) throws IOException {
+    public BooxPenProcess(int rotation, int width, int height) throws IOException, InterruptedException {
+        BooxPenInitialization.awaitIdle(() -> readMetadata("getevent", "-lp"),
+                () -> Ln.w("Pen not initialized on the tablet. Please touch the screen with the stylus, "
+                        + "then lift it away to continue."), Thread::sleep);
+        if (Thread.currentThread().isInterrupted()) {
+            throw new InterruptedException("BOOX pen startup cancelled");
+        }
         ProcessBuilder builder = new ProcessBuilder("app_process", "/", BooxPenProcess.class.getName(), String.valueOf(rotation),
                 String.valueOf(width), String.valueOf(height));
         builder.environment().put("CLASSPATH", Server.SERVER_PATH);
@@ -112,15 +117,18 @@ public final class BooxPenProcess implements Closeable {
         }, "boox-discovery");
         drain.setDaemon(true);
         drain.start();
-        if (!p.waitFor(3, TimeUnit.SECONDS)) {
-            p.destroy();
-            throw new IOException("BOOX input metadata discovery timed out");
+        try {
+            if (!p.waitFor(3, TimeUnit.SECONDS)) {
+                throw new IOException("BOOX input metadata discovery timed out");
+            }
+            drain.join(1000);
+            if (drain.isAlive() || p.exitValue() != 0 || bytes.size() >= 262144) {
+                throw new IOException("BOOX input metadata discovery failed");
+            }
+            return new String(bytes.toByteArray(), StandardCharsets.UTF_8);
+        } finally {
+            p.destroy(); // Also stop discovery if startup is cancelled during waitFor/join.
         }
-        drain.join(1000);
-        if (drain.isAlive() || p.exitValue() != 0 || bytes.size() >= 262144) {
-            throw new IOException("BOOX input metadata discovery failed");
-        }
-        return new String(bytes.toByteArray(), StandardCharsets.UTF_8);
     }
 
     public static void main(String... args) {

@@ -10,6 +10,7 @@ import java.nio.ByteOrder;
 public final class BooxPen implements Closeable {
     private final OutputStream out;
     private final boolean wide;
+    private final ByteBuffer buffer;
     private final int minX;
     private final int maxX;
     private final int minY;
@@ -42,6 +43,7 @@ public final class BooxPen implements Closeable {
         this.originalY = originalY;
         this.originalDistance = originalDistance;
         this.rotation = rotation;
+        buffer = ByteBuffer.allocate(6 * (wide ? 24 : 16)).order(ByteOrder.nativeOrder());
     }
 
     public synchronized boolean inject(int action, long id, float x, float y, float pressure, long now) throws IOException {
@@ -112,7 +114,7 @@ public final class BooxPen implements Closeable {
 
     private void release() throws IOException {
         if (active) {
-            ByteBuffer buffer = ByteBuffer.allocate(6 * (wide ? 24 : 16)).order(ByteOrder.nativeOrder());
+            buffer.clear();
             event(buffer, 3, 24, 0);
             event(buffer, 1, 330, 0);
             event(buffer, 3, 25, originalDistance);
@@ -125,7 +127,7 @@ public final class BooxPen implements Closeable {
     }
 
     private void frame(int x, int y, int pressure, int distance, int touch) throws IOException {
-        ByteBuffer buffer = ByteBuffer.allocate(6 * (wide ? 24 : 16)).order(ByteOrder.nativeOrder());
+        buffer.clear();
         event(buffer, 3, 0, x);
         event(buffer, 3, 1, y);
         event(buffer, 3, 25, distance);

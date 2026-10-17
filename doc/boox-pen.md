@@ -68,3 +68,36 @@ No software can guarantee restoration if the kernel refuses writes, the device d
 ## Build
 
 The packaging repository declares checksummed Android platform/build-tools archives and a JDK. `server/scripts/build-standalone.sh ANDROID_JAR D8_JAR OUTPUT` generates the repository's AIDL stubs, compiles all maintained Java sources, runs D8 and packages the dex archive loaded by `app_process`. It does not download dependencies. Use `bash server/scripts/test-boox-pen.sh` for host fixtures; Meson debug builds include the client pen-state and CLI regression tests.
+
+## Queue safety and host measurements
+
+The client accepts ordinary droppable messages, including pen MOVE and
+pressure-only MOVE, while the total queue contains fewer than 60 messages.
+Excess MOVE samples are dropped, not coalesced. Already accepted samples retain
+FIFO order; stationary pressure changes are not filtered as redundant XY motion.
+Only reserved pen DOWN/UP/CANCEL bypass this ordinary limit. If an incoming pen
+boundary finds 128 or more queued messages, or cannot allocate its queue slot,
+the controller stops and attempts to interrupt the control socket. Reconnect to
+resume. This is a safety budget, not a measured latency threshold. Existing UHID
+CREATE/DESTROY allocation behavior is unchanged and is not subject to this pen
+budget. An in-flight send cannot be retracted. Disconnect cleanup and the worker
+watchdog remain fallback; failed transport or device writes cannot guarantee
+physical contact release.
+
+The worker buffers input reads and reuses one encoder buffer per BooxPen
+instance under the existing synchronization. Host fixtures verify exact event
+bytes for both ABI layouts, rotations, pressure, release and failed-write retries.
+A queued 32-packet host fixture uses 2 underlying input-stream reads rather than
+257. A host ThreadMXBean probe with 100,000 warmup and 300,000 measured MOVE
+samples observed approximately 112/160 allocated bytes per sample before encoder
+reuse (32/64-bit event layouts), and zero measured bytes afterward. Output remains
+one 96/144-byte frame write per sample. These are host counters, not Android ART
+GC, CPU, battery or end-to-end latency measurements.
+
+A separate host OpenJDK ProcessBuilder/strace probe observed 32 pipe writes of
+24 bytes for 32 samples with either the current primitive writes plus flush or a
+prepacked packet. Each sample was acknowledged before the next sample or EOF.
+There was no pipe-write-count reduction on this host, so no parent packet-buffer
+change was adopted. Android stream/syscall behavior remains unmeasured. The
+per-event display geometry guard remains intact: removing it requires a tested,
+authoritative display-change invalidation mechanism, not assumed Binder savings.

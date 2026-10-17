@@ -17,5 +17,6 @@ python3 "$root/server/scripts/test-boox-startup.py"
 java -cp "$build" com.genymobile.scrcpy.control.BooxPenTest
 java -cp "$build" com.genymobile.scrcpy.control.BooxDeviceTest
 java -cp "$build" com.genymobile.scrcpy.control.BooxPenSessionTest
+java -cp "$build" com.genymobile.scrcpy.control.BooxPenBufferTest
 java -cp "$build" com.genymobile.scrcpy.control.BooxMappingTest \
     "$root/server/src/testHost/java/com/genymobile/scrcpy/control/fixtures/boox-input.txt"

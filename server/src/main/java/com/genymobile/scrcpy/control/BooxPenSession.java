@@ -1,5 +1,6 @@
 package com.genymobile.scrcpy.control;
 
+import java.io.BufferedInputStream;
 import java.io.DataInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -12,7 +13,8 @@ public final class BooxPenSession {
 
     public static void run(InputStream stream, BooxPen pen, LongSupplier clock) throws IOException {
         try (BooxPen ownedPen = pen) {
-            DataInputStream in = new DataInputStream(stream);
+            // Read available pipe bytes in bulk; never wait to accumulate a full buffer or stroke.
+            DataInputStream in = new DataInputStream(new BufferedInputStream(stream));
             while (true) {
                 int first = in.read();
                 if (first == -1) {
